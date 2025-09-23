@@ -355,8 +355,19 @@
       const markupFactor = 1 + RATES.profitMargin;
       // Base total for categories subject to markup (exclude setup)
       const nonSetupBaseTotal = electrical + water + sewer + septic + trench + additional;
+
+      // Calculate profit on categories subject to markup (20% of base cost)
+      const nonSetupProfit = nonSetupBaseTotal * RATES.profitMargin;
+
+      // Calculate profit portion embedded in the setup price. Since setup pricing
+      // already includes a 20% margin, derive the embedded profit using the
+      // relationship price = cost * (1 + margin). Profit = price - cost.
+      // cost = price / (1 + margin)
+      // profit = price - cost = price * (margin / (1 + margin))
+      const setupProfit = setup * (RATES.profitMargin / (1 + RATES.profitMargin));
+
       return {
-        // Setup already includes margin in its rate; do not apply markup
+        // Setup already includes margin in its rate; do not apply additional markup
         setup: setup,
         electrical: electrical * markupFactor,
         water: water * markupFactor,
@@ -366,10 +377,12 @@
         additional: additional * markupFactor,
         // Total price: setup (with margin built-in) plus other categories with markup
         total: setup + nonSetupBaseTotal * markupFactor,
-        // Profit is the margin earned on categories subject to markup
-        profit: nonSetupBaseTotal * RATES.profitMargin,
-        // Base total for reference (setup + other categories before markup)
-        baseTotal: setup + nonSetupBaseTotal
+        // Profit is the margin earned on categories subject to markup plus
+        // the embedded profit portion within the setup price
+        profit: nonSetupProfit + setupProfit,
+        // Base total for reference (cost before markup): cost of setup plus
+        // other categories before markup
+        baseTotal: (setup / markupFactor) + nonSetupBaseTotal
       };
     }
     function updateSummary() {
