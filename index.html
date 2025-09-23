@@ -599,6 +599,75 @@
       html += '<tr><th style="border:1px solid #ccc; padding:6px">Total Price</th><th style="border:1px solid #ccc; padding:6px; text-align:right">' + formatCurrency(totals.total) + '</th></tr>';
       html += '</table>';
       // End note – omit company name to keep the PDF neutral
+      // Assemble a brief scope of work based on selections so the client knows what is included without divulging internal costs or markups.
+      const details = [];
+      // Describe home size and trailer setup
+      const homeSize = document.getElementById('home-size').value;
+      if (homeSize) {
+        details.push('Home size: ' + homeSize.replace('x', 'ft × ') + '');
+      }
+      const trailer = document.getElementById('setup-trailer').checked;
+      if (trailer) {
+        details.push('Setup on trailer includes piers and leveling.');
+      } else {
+        details.push('Standard ground setup.');
+      }
+      // Electrical details
+      const electricalType = document.getElementById('electrical-type').value;
+      const electricalFeet = parseFloat(document.getElementById('electrical-feet').value) || 0;
+      if (electricalType === '240' && electricalFeet > 0) {
+        details.push('Electrical: 240V run of ' + electricalFeet + ' ft with sub‑panel installation.');
+      } else if (electricalType === '110' && electricalFeet > 0) {
+        details.push('Electrical: 110V run of ' + electricalFeet + ' ft.');
+      }
+      // Water details
+      const waterFeet = parseFloat(document.getElementById('water-feet').value) || 0;
+      const waterTypeEl = document.getElementById('water-type');
+      const waterType = waterTypeEl ? waterTypeEl.value : 'spigot';
+      if (waterFeet > 0) {
+        if (waterType === 'bathroom') {
+          details.push('Water: ' + waterFeet + ' ft run connecting to front house bathroom.');
+        } else {
+          details.push('Water: ' + waterFeet + ' ft run connecting to backyard spigot.');
+        }
+      }
+      // Sewer details
+      const sewerFeet = parseFloat(document.getElementById('sewer-feet').value) || 0;
+      if (sewerFeet > 0) {
+        details.push('Sewer: ' + sewerFeet + ' ft line installation.');
+      }
+      // Septic details
+      const septicSize = document.getElementById('septic-size').value;
+      const septicExtra = parseFloat(document.getElementById('septic-leach').value) || 0;
+      if (septicSize) {
+        let desc = 'Septic: ' + septicSize + ' gallon tank';
+        if (septicExtra > 0) {
+          desc += ' with ' + septicExtra + ' ft of extra leach line';
+        }
+        details.push(desc + '.');
+      }
+      // Trenching details
+      const trenchFeet = parseFloat(document.getElementById('trench-feet').value) || 0;
+      if (trenchFeet > 0) {
+        details.push('Trenching: ' + trenchFeet + ' ft for utilities.');
+      }
+      // Additional work details
+      const addDescPdf = document.getElementById('additional-desc').value.trim();
+      const addCostPdf = parseFloat(document.getElementById('additional-cost').value) || 0;
+      if (addCostPdf > 0) {
+        if (addDescPdf) {
+          details.push('Additional work: ' + addDescPdf + '.');
+        } else {
+          details.push('Additional work as specified on site.');
+        }
+      }
+      if (details.length > 0) {
+        html += '<h3 style="margin-top:20px">Scope of Work</h3><ul>';
+        details.forEach(function(item) {
+          html += '<li>' + item + '</li>';
+        });
+        html += '</ul>';
+      }
       html += '<p style="margin-top:20px">Thank you for your business.</p>';
       const printWindow = window.open('', '_blank');
       printWindow.document.write('<html><head><title>Survey Estimate</title>');
