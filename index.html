@@ -182,12 +182,12 @@
         <div style="flex:1; min-width:180px;">
           <label for="rate-electrical-240">Electrical 240V rate ($/ft)</label>
           <!-- Increase the default electrical rate to reflect higher material costs; surveyors can still adjust -->
-          <input type="number" id="rate-electrical-240" min="0" step="0.01" value="30" />
+          <input type="number" id="rate-electrical-240" min="0" step="0.01" value="20" />
         </div>
         <div style="flex:1; min-width:180px;">
           <label for="rate-electrical-110">Electrical 110V rate ($/ft)</label>
           <!-- Increase the default 110V rate as well so electrical pricing is clearly above water and sewer -->
-          <input type="number" id="rate-electrical-110" min="0" step="0.01" value="20" />
+          <input type="number" id="rate-electrical-110" min="0" step="0.01" value="15" />
         </div>
         <div style="flex:1; min-width:180px;">
           <label for="rate-electrical-subpanel">Sub‑Panel Fee ($)</label>
@@ -319,8 +319,10 @@
       // serve as fallbacks and are still adjustable via the Rate Adjustments
       // section.  The sub‑panel fee reflects the cost of providing and
       // installing the sub‑panel itself before markup.
-      // Revised baseline electrical rates: lower default per‑foot rates as requested.
-      electrical: { '240': 30, '110': 20, 'subPanelFee': 950 },
+      // Revised baseline electrical rates: further adjust per‑foot rates as requested.
+      // 240V runs will default to $20 per linear foot and 110V runs to $15 per linear foot.
+      // The sub‑panel fee remains unchanged at $950.
+      electrical: { '240': 20, '110': 15, 'subPanelFee': 950 },
       water: 21.62,
       sewer: 36,
       septic: { '1000': 9750, '1200': 10450, '1500': 11250, 'extraLeach': 1500 },
