@@ -173,6 +173,49 @@
         <input type="checkbox" id="setup-trailer" /> Setup on Trailer (adds $1,750)
       </label>
     </section>
+
+    <!-- Rate adjustment section allowing surveyors to tweak per‑foot pricing for each utility. -->
+    <section class="card">
+      <h2>Rate Adjustments</h2>
+      <p style="margin-bottom:0.5rem; font-size:0.9rem; color:#555">Adjust the default per‑foot rates and sub‑panel fee as needed. Values below are used to calculate costs.</p>
+      <div class="grid" style="display:flex; flex-wrap:wrap; gap:1rem;">
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-electrical-240">Electrical 240V rate ($/ft)</label>
+          <!-- Increase the default electrical rate to reflect higher material costs; surveyors can still adjust -->
+          <input type="number" id="rate-electrical-240" min="0" step="0.01" value="65" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-electrical-110">Electrical 110V rate ($/ft)</label>
+          <!-- Increase the default 110V rate as well so electrical pricing is clearly above water and sewer -->
+          <input type="number" id="rate-electrical-110" min="0" step="0.01" value="55" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-electrical-subpanel">Sub‑Panel Fee ($)</label>
+          <input type="number" id="rate-electrical-subpanel" min="0" step="0.01" value="600" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-water">Water line rate ($/ft)</label>
+          <input type="number" id="rate-water" min="0" step="0.01" value="21.62" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-sewer">Sewer line rate ($/ft)</label>
+          <input type="number" id="rate-sewer" min="0" step="0.01" value="36" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-septic-extra">Septic extra leach rate ($/ft)</label>
+          <!-- default is $1500 per 100ft → $15 per foot -->
+          <input type="number" id="rate-septic-extra" min="0" step="0.01" value="15" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-trench">Trenching rate ($/ft)</label>
+          <input type="number" id="rate-trench" min="0" step="0.01" value="15" />
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <label for="rate-machine-day">Trenching machine day rate ($/day)</label>
+          <input type="number" id="rate-machine-day" min="0" step="1" value="400" />
+        </div>
+      </div>
+    </section>
     <section class="card">
       <h2>Electrical</h2>
       <label for="electrical-type">Installation Type</label>
@@ -265,7 +308,18 @@
     const RATES = {
       setup: { '20x20': 5500, '20x30': 6000, '20x40': 6500 },
       trailerExtra: 1750,
-      electrical: { '240': 32.26, '110': 30.83, 'subPanelFee': 550 },
+      // Updated baseline rates for electrical to reflect higher material requirements (these
+      // serve as fallbacks if the surveyor does not adjust the rate in the UI)
+      // Updated default electrical rates to better reflect multiple conductors required per run;
+      // these values are slightly higher than sewer/water rates but can be adjusted by the surveyor.
+      // Increase default electrical rates and sub‑panel fee to better reflect
+      // the higher material and labor requirements for electrical runs. A
+      // 240V installation requires two hots and a neutral (three conductors),
+      // while a 110V installation uses two conductors. These baseline rates
+      // serve as fallbacks and are still adjustable via the Rate Adjustments
+      // section.  The sub‑panel fee reflects the cost of providing and
+      // installing the sub‑panel itself before markup.
+      electrical: { '240': 65, '110': 55, 'subPanelFee': 600 },
       water: 21.62,
       sewer: 36,
       septic: { '1000': 9750, '1200': 10450, '1500': 11250, 'extraLeach': 1500 },
@@ -292,16 +346,21 @@
       const type = document.getElementById('electrical-type').value;
       const ft = parseFloat(document.getElementById('electrical-feet').value) || 0;
       if (!ft || type === 'none') return 0;
-      let rate = 0;
+      // Fetch adjustable rates from inputs if provided, otherwise fall back to defaults
+      const rate240 = parseFloat(document.getElementById('rate-electrical-240').value) || RATES.electrical['240'];
+      const rate110 = parseFloat(document.getElementById('rate-electrical-110').value) || RATES.electrical['110'];
+      const subPanelFee = parseFloat(document.getElementById('rate-electrical-subpanel').value) || RATES.electrical.subPanelFee;
       let cost = 0;
+      // When running 240V to a sub‑panel we need multiple conductors (two hots and a neutral),
+      // effectively tripling the footage. For direct 110V runs we need a hot and neutral (2 conductors).
       if (type === '240') {
-        rate = RATES.electrical['240'];
-        cost = ft * rate;
-        // Apply sub‑panel fee once if any length is run
-        cost += RATES.electrical.subPanelFee;
+        const conductorMultiplier = 3;
+        cost = ft * conductorMultiplier * rate240;
+        // Apply the sub‑panel fee once if any run length is specified
+        cost += subPanelFee;
       } else if (type === '110') {
-        rate = RATES.electrical['110'];
-        cost = ft * rate;
+        const conductorMultiplier = 2;
+        cost = ft * conductorMultiplier * rate110;
       }
       return cost;
     }
@@ -310,7 +369,10 @@
       // Determine type of water connection (spigot vs bathroom)
       const waterTypeEl = document.getElementById('water-type');
       const type = waterTypeEl ? waterTypeEl.value : 'spigot';
-      let cost = ft * RATES.water;
+      // Read adjustable water rate from the rate adjustments section. If not set, fall back to default.
+      const rateWaterInput = document.getElementById('rate-water');
+      const rateWater = rateWaterInput ? parseFloat(rateWaterInput.value) || RATES.water : RATES.water;
+      let cost = ft * rateWater;
       // If connecting to bathroom, add a flat fee of $1500 (only if there is some run length)
       if (type === 'bathroom' && ft > 0) {
         cost += 1500;
@@ -321,7 +383,9 @@
     // with optional additional leach line cost.  If no septic size is selected, cost is zero.
     function calculateSewer() {
       const ft = parseFloat(document.getElementById('sewer-feet').value) || 0;
-      return ft * RATES.sewer;
+      const rateSewerInput = document.getElementById('rate-sewer');
+      const rateSewer = rateSewerInput ? parseFloat(rateSewerInput.value) || RATES.sewer : RATES.sewer;
+      return ft * rateSewer;
     }
     function calculateSeptic() {
       const size = document.getElementById('septic-size').value;
@@ -329,18 +393,25 @@
       let cost = RATES.septic[size] || 0;
       const extraFeet = parseFloat(document.getElementById('septic-leach').value) || 0;
       if (extraFeet > 0) {
-        // Each additional 100ft of leach line triggers an extra fee
-        const extraUnits = Math.ceil(extraFeet / 100);
-        cost += extraUnits * RATES.septic.extraLeach;
+        // Use adjustable per‑foot rate for extra leach lines; default to RATES.septic.extraLeach/100 ($15/ft)
+        const rateExtraInput = document.getElementById('rate-septic-extra');
+        const rateExtra = rateExtraInput ? parseFloat(rateExtraInput.value) || (RATES.septic.extraLeach / 100) : (RATES.septic.extraLeach / 100);
+        // Compute extra cost per foot
+        cost += extraFeet * rateExtra;
       }
       return cost;
     }
     function calculateTrenching() {
       const ft = parseFloat(document.getElementById('trench-feet').value) || 0;
       if (ft <= 0) return 0;
-      const costFeet = ft * RATES.trenching.perFoot;
+      // Pull adjustable per‑foot and machine day rates from the rate adjustments section
+      const rateTrenchInput = document.getElementById('rate-trench');
+      const rateMachineInput = document.getElementById('rate-machine-day');
+      const rateTrench = rateTrenchInput ? parseFloat(rateTrenchInput.value) || RATES.trenching.perFoot : RATES.trenching.perFoot;
+      const rateMachine = rateMachineInput ? parseFloat(rateMachineInput.value) || RATES.trenching.machineDay : RATES.trenching.machineDay;
+      const costFeet = ft * rateTrench;
       const days = Math.ceil(ft / RATES.trenching.feetPerDay);
-      const machine = days * RATES.trenching.machineDay;
+      const machine = days * rateMachine;
       return costFeet + machine;
     }
     function calculateTotals() {
@@ -461,6 +532,16 @@
       'electrical-type',
       'additional-cost',
       'additional-desc'
+      ,
+      // rate adjustment inputs
+      'rate-electrical-240',
+      'rate-electrical-110',
+      'rate-electrical-subpanel',
+      'rate-water',
+      'rate-sewer',
+      'rate-septic-extra',
+      'rate-trench',
+      'rate-machine-day'
     ];
     inputsToWatch.forEach(function(id) {
       const el = document.getElementById(id);
