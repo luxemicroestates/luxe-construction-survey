@@ -259,29 +259,27 @@
     function calculateSetup() {
       const size = document.getElementById('home-size').value;
       let cost = RATES.setup[size] || 0;
-      if (document.getElementById('setup-trailer').checked) {
-        cost += RATES.trailerExtra;
-      }
-      return cost;
-    }
-    function calculateFoundation() {
-      const type = document.getElementById('foundation-type').value;
-      const size = document.getElementById('home-size').value;
-      const dims = size.split('x');
-      const width = parseFloat(dims[0]);
-      const length = parseFloat(dims[1]);
-      const area = width * length;
-      let cost = 0;
-      if (type === 'base') {
-        const perSqFt = 4.5;
-        cost = area * perSqFt;
-        if (cost < 1500) cost = 1500;
-      } else if (type === 'concrete')     } else if (type === 'concrete') {
-        const perSqFt = 13.5;
-        cost = area * perSqFt;
-        if (cost < 2160) cost = 2160;
-    }
-    return cost;
+   function calculateFoundation() {
+  const type = document.getElementById('foundation-type').value;
+  const size = document.getElementById('home-size').value;
+  const dims = size.split('x');
+  const width = parseFloat(dims[0]);
+  const length = parseFloat(dims[1]);
+  const area = width * length;
+  let cost = 0;
+  if (type === 'base') {
+    const perSqFt = 4.5;
+    cost = area * perSqFt;
+    if (cost < 1500) cost = 1500;
+  } else if (type === 'concrete') {
+    const perSqFt = 13.5;
+    cost = area * perSqFt;
+    if (cost < 2160) cost = 2160;
+  }
+  return cost;
+}
+
+
 
     function calculateElectrical() {
       const feet = parseFloat(document.getElementById('electrical-feet').value) || 0;
