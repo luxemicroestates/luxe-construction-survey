@@ -276,13 +276,13 @@
         const perSqFt = 4.5;
         cost = area * perSqFt;
         if (cost < 1500) cost = 1500;
-      } else if (type === 'concrete') {
-        const perSqFt = 8;
+      } else if (type === 'concrete')     } else if (type === 'concrete') {
+        const perSqFt = 13.5;
         cost = area * perSqFt;
-        if (cost < 3000) cost = 3000;
-      }
-      return cost;
+        if (cost < 2160) cost = 2160;
     }
+    return cost;
+
     function calculateElectrical() {
       const feet = parseFloat(document.getElementById('electrical-feet').value) || 0;
       if (feet <= 0) return 0;
