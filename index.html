@@ -253,39 +253,37 @@
       trenchMachineDay: 400,
       trenchFeetPerDay: 200
     };
+
     function formatCurrency(value) {
       return '$' + value.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
     }
-    function () {
+
+    function calculateSetup() {
       const size = document.getElementById('home-size').value;
       let cost = RATES.setup[size] || 0;
-        if (document.getElementById('setup-trailer').checked) {
-function calculateSetup() {
-  const size = document.getElementById('home-size').value;
-  let cost = RATES.setup[size] || 0;
-  if (document.getElementById('setup-trailer').checked) {
-    cost += RATES.trailerExtra;
-  }
-  area = width * length;
-  let cost = 0;
-  if (type === 'base') {
-    const perSqFt = 4.5;
-    cost = area * perSqFt;
-    if (cost < 1500) cost = 1500;
-  } else if (type === 'concrete') {
-    const perSqFt = 13.5;
-    cost = area * perSqFt;
-    if (cost < 2160) cost = 2160;
-  }
-  return cost;
-}
-  cost += RATES.trailerExtra;
-  }
-  return cost;
-}
-  
-  
+      if (document.getElementById('setup-trailer').checked) {
+        cost += RATES.trailerExtra;
+      }
+      return cost;
+    }
 
+    function calculateFoundation() {
+      const size = document.getElementById('home-size').value;
+      const [width, length] = size.split('x').map(Number);
+      const area = width * length;
+      const type = document.getElementById('foundation-type').value;
+      let cost = 0;
+      if (type === 'base') {
+        const perSqFt = 4.5;
+        cost = area * perSqFt;
+        if (cost < 1500) cost = 1500;
+      } else if (type === 'concrete') {
+        const perSqFt = 13.5;
+        cost = area * perSqFt;
+        if (cost < 2160) cost = 2160;
+      }
+      return cost;
+    }
 
     function calculateElectrical() {
       const feet = parseFloat(document.getElementById('electrical-feet').value) || 0;
@@ -294,14 +292,17 @@ function calculateSetup() {
       cost += RATES.electricalSubPanel;
       return cost;
     }
-    unction calculateWater() {
+
+    function calculateWater() {
       const feet = parseFloat(document.getElementById('water-feet').value) || 0;
       return feet * RATES.waterPerFoot;
     }
+
     function calculateSewer() {
       const feet = parseFloat(document.getElementById('sewer-feet').value) || 0;
       return feet * RATES.sewerPerFoot;
     }
+
     function calculateSeptic() {
       const size = document.getElementById('septic-size').value;
       if (!size) return 0;
@@ -312,6 +313,7 @@ function calculateSetup() {
       }
       return cost;
     }
+
     function calculateTrenching() {
       const feet = parseFloat(document.getElementById('trench-feet').value) || 0;
       if (feet <= 0) return 0;
@@ -320,10 +322,12 @@ function calculateSetup() {
       const machine = days * RATES.trenchMachineDay;
       return costFeet + machine;
     }
+
     function calculateOther() {
       const cost = parseFloat(document.getElementById('other-cost').value) || 0;
       return cost;
     }
+
     function updateFoundationEstimate() {
       const cost = calculateFoundation();
       const estEl = document.getElementById('foundation-estimate');
@@ -333,6 +337,7 @@ function calculateSetup() {
         estEl.textContent = '';
       }
     }
+
     function calculateTotals() {
       const setup = calculateSetup();
       const foundation = calculateFoundation();
@@ -354,6 +359,7 @@ function calculateSetup() {
         total: setup + foundation + electrical + water + sewer + septic + trench + other
       };
     }
+
     function updateSummary() {
       updateFoundationEstimate();
       const totals = calculateTotals();
@@ -380,10 +386,12 @@ function calculateSetup() {
       }
       document.getElementById('summary-total').textContent = formatCurrency(totals.total);
     }
+
     document.getElementById('calculate').addEventListener('click', function() {
       updateSummary();
       alert('Estimate updated. See summary below.');
     });
+
     const inputs = [
       'home-size','setup-trailer','foundation-type','electrical-feet','water-feet',
       'sewer-feet','septic-size','septic-leach','trench-feet','other-name','other-cost'
@@ -395,6 +403,7 @@ function calculateSetup() {
         el.addEventListener('change', updateSummary);
       }
     });
+
     function generatePDF() {
       updateSummary();
       const totals = calculateTotals();
@@ -496,7 +505,10 @@ function calculateSetup() {
         printWindow.print();
       }, 500);
     }
+
     document.getElementById('generate-pdf').addEventListener('click', generatePDF);
+
+    // Initialize summary on page load
     updateSummary();
   </script>
 </body>
