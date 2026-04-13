@@ -164,6 +164,13 @@
           <input type="date" id="survey-date" />
         </div>
       </div>
+      <div class="row">
+        <div class="col">
+          <label for="estimate-number">Estimate #</label>
+          <input type="text" id="estimate-number" placeholder="e.g. LME-2026-001" />
+        </div>
+        <div class="col"></div>
+      </div>
       <div>
         <label for="customer-email">Email (optional)</label>
         <input type="text" id="customer-email" placeholder="Email" />
@@ -199,18 +206,28 @@
     <section class="card">
       <h2>Electrical</h2>
       <p style="margin-top:0">220V/240V from main house to RV Connection Point (Subpanel Behind Tiny Home)</p>
+      <p class="field-hint">Measure the straight-line distance from the main panel to where the home will sit. The cost reflects the full wire run (2 conductors + ground) plus conduit and the subpanel installation behind the home.</p>
       <label for="electrical-feet">Distance from Main House to RV Connection Point (ft)</label>
       <input type="number" id="electrical-feet" min="0" step="1" placeholder="0" />
+      <label style="margin-top:0.25rem">
+        <input type="checkbox" id="panel-upgrade" />
+        Main panel upgrade required — adds $2,500 est.
+        <span class="field-hint" style="margin:0.15rem 0 0 1.6rem; display:block">
+          Check this if the client's existing panel is full, outdated, or cannot support a new 220V circuit.
+        </span>
+      </label>
     </section>
 
     <section class="card">
       <h2>Water</h2>
+      <p class="field-hint">Measure from the existing water source (meter or well tap) to the home's connection point. Rate covers materials and installation.</p>
       <label for="water-feet">Water Line Length (ft)</label>
       <input type="number" id="water-feet" min="0" step="1" placeholder="0" />
     </section>
 
     <section class="card">
       <h2>Sewer &amp; Septic</h2>
+      <p class="field-hint">For sewer, measure from the home to the existing sewer connection. Rate covers materials and installation.</p>
       <label for="sewer-feet">Sewer Line Length (ft)</label>
       <input type="number" id="sewer-feet" min="0" step="1" placeholder="0" />
       <hr />
@@ -221,15 +238,23 @@
         <option value="1200">1,200 Gallon – $10,450</option>
         <option value="1500">1,500 Gallon – $11,250</option>
       </select>
-      <label for="septic-leach">Extra Leach Line (ft beyond included length)</label>
-      <input type="number" id="septic-leach" min="0" step="1" placeholder="0" />
+      <div id="septic-leach-section" style="display:none">
+        <label for="septic-leach">Extra Leach Line (ft beyond included length)</label>
+        <input type="number" id="septic-leach" min="0" step="1" placeholder="0" />
+      </div>
     </section>
 
     <section class="card">
       <h2>Trenching</h2>
-      <p class="field-hint">Enter the total linear feet of trench required across all utility runs.</p>
+      <p class="field-hint">Enter total linear feet of trench needed for any utility runs not already covered by the water and sewer line costs above (e.g., electrical conduit, or additional runs). Leave at 0 if water and sewer lines share the same path and no extra trench is needed.</p>
       <label for="trench-feet">Trenching Length (ft)</label>
       <input type="number" id="trench-feet" min="0" step="1" placeholder="0" />
+      <label for="soil-conditions">Ground / Soil Conditions</label>
+      <select id="soil-conditions">
+        <option value="normal">Normal — standard soil / dirt</option>
+        <option value="rocky">Rocky — significant rock present (est. ×1.5)</option>
+        <option value="very_rocky">Very Rocky / Hard Rock — specialized equipment needed (est. ×2.25)</option>
+      </select>
     </section>
 
     <section class="card">
@@ -343,18 +368,29 @@
     // ─── Form values ──────────────────────────────────────────────────────────
 
     function getFormValues() {
+      var soilKey = document.getElementById('soil-conditions').value || 'normal';
       return {
-        size:           document.getElementById('home-size').value,
-        hasTrailer:     document.getElementById('setup-trailer').checked,
-        foundationType: document.getElementById('foundation-type').value,
-        electricalFeet: parseFloat(document.getElementById('electrical-feet').value) || 0,
-        waterFeet:      parseFloat(document.getElementById('water-feet').value) || 0,
-        sewerFeet:      parseFloat(document.getElementById('sewer-feet').value) || 0,
-        septicSize:     document.getElementById('septic-size').value,
-        septicLeach:    parseFloat(document.getElementById('septic-leach').value) || 0,
-        trenchFeet:     parseFloat(document.getElementById('trench-feet').value) || 0,
-        otherCost:      otherItems.reduce(function(s, item) { return s + (parseFloat(item.cost) || 0); }, 0)
+        size:              document.getElementById('home-size').value,
+        hasTrailer:        document.getElementById('setup-trailer').checked,
+        foundationType:    document.getElementById('foundation-type').value,
+        electricalFeet:    parseFloat(document.getElementById('electrical-feet').value) || 0,
+        needsPanelUpgrade: document.getElementById('panel-upgrade').checked,
+        waterFeet:         parseFloat(document.getElementById('water-feet').value) || 0,
+        sewerFeet:         parseFloat(document.getElementById('sewer-feet').value) || 0,
+        septicSize:        document.getElementById('septic-size').value,
+        septicLeach:       parseFloat(document.getElementById('septic-leach').value) || 0,
+        trenchFeet:        parseFloat(document.getElementById('trench-feet').value) || 0,
+        soilFactor:        RATES.soilMultiplier[soilKey] || 1,
+        soilCondition:     soilKey,
+        otherCost:         otherItems.reduce(function(s, item) { return s + (parseFloat(item.cost) || 0); }, 0)
       };
+    }
+
+    // Show or hide the extra leach line field based on whether a tank is selected
+    function updateSepticLeachVisibility() {
+      var hasTank = document.getElementById('septic-size').value !== '';
+      document.getElementById('septic-leach-section').style.display = hasTank ? 'block' : 'none';
+      if (!hasTank) document.getElementById('septic-leach').value = '';
     }
 
     // Human-readable breakdown strings used in both the summary and PDF
@@ -378,6 +414,9 @@
       if (formVals.electricalFeet > 0) {
         b.electrical = formVals.electricalFeet + ' ft × 3 × $10/ft + $950 subpanel';
       }
+      if (formVals.needsPanelUpgrade) {
+        b.panel = 'Main panel at capacity or outdated — upgrade required';
+      }
       if (formVals.waterFeet > 0) {
         b.water = formVals.waterFeet + ' ft × $21.62/ft';
       }
@@ -393,8 +432,10 @@
       }
       if (formVals.trenchFeet > 0) {
         var days = Math.ceil(formVals.trenchFeet / RATES.trenchFeetPerDay);
+        var soilLabel = { normal: '', rocky: ' — rocky conditions (×1.5)', very_rocky: ' — hard rock (×2.25)' };
         b.trench = formVals.trenchFeet + ' ft × $15/ft + ' +
-                   days + ' day' + (days !== 1 ? 's' : '') + ' machine rental';
+                   days + ' day' + (days !== 1 ? 's' : '') + ' machine rental' +
+                   (soilLabel[formVals.soilCondition] || '');
       }
       return b;
     }
@@ -426,13 +467,14 @@
         tbody.appendChild(row);
       }
 
-      addRow('Setup',      totals.setup,       breakdowns.setup);
-      addRow('Foundation', totals.foundation,  breakdowns.foundation);
-      addRow('Electrical', totals.electrical,  breakdowns.electrical);
-      addRow('Water',      totals.water,       breakdowns.water);
-      addRow('Sewer',      totals.sewer,       breakdowns.sewer);
-      addRow('Septic',     totals.septic,      breakdowns.septic);
-      addRow('Trenching',  totals.trench,      breakdowns.trench);
+      addRow('Setup',           totals.setup,       breakdowns.setup);
+      addRow('Foundation',      totals.foundation,  breakdowns.foundation);
+      addRow('Electrical',      totals.electrical,  breakdowns.electrical);
+      addRow('Panel Upgrade',   totals.panel,       breakdowns.panel);
+      addRow('Water',           totals.water,       breakdowns.water);
+      addRow('Sewer',           totals.sewer,       breakdowns.sewer);
+      addRow('Septic',          totals.septic,      breakdowns.septic);
+      addRow('Trenching',       totals.trench,      breakdowns.trench);
 
       otherItems.forEach(function(item) {
         var cost = parseFloat(item.cost) || 0;
@@ -447,9 +489,9 @@
     var STORAGE_KEY = 'luxe-survey-estimate';
     var FIELD_IDS   = [
       'customer-name', 'customer-phone', 'customer-address', 'customer-email',
-      'survey-date', 'home-size', 'setup-trailer', 'foundation-type',
-      'electrical-feet', 'water-feet', 'sewer-feet', 'septic-size',
-      'septic-leach', 'trench-feet', 'site-notes'
+      'survey-date', 'estimate-number', 'home-size', 'setup-trailer', 'foundation-type',
+      'electrical-feet', 'panel-upgrade', 'water-feet', 'sewer-feet', 'septic-size',
+      'septic-leach', 'trench-feet', 'soil-conditions', 'site-notes'
     ];
 
     function saveToStorage() {
@@ -507,13 +549,14 @@
       var formVals   = getFormValues();
       var totals     = calculateTotals(formVals);
       var breakdowns = getBreakdowns(formVals);
-      var name    = document.getElementById('customer-name').value;
-      var phone   = document.getElementById('customer-phone').value;
-      var address = document.getElementById('customer-address').value;
-      var email   = document.getElementById('customer-email').value;
-      var dateVal = document.getElementById('survey-date').value;
-      var notes   = document.getElementById('site-notes').value.trim();
-      var dateStr = dateVal || new Date().toLocaleDateString();
+      var name       = document.getElementById('customer-name').value;
+      var phone      = document.getElementById('customer-phone').value;
+      var address    = document.getElementById('customer-address').value;
+      var email      = document.getElementById('customer-email').value;
+      var dateVal    = document.getElementById('survey-date').value;
+      var estimateNo = document.getElementById('estimate-number').value.trim();
+      var notes      = document.getElementById('site-notes').value.trim();
+      var dateStr    = dateVal || new Date().toLocaleDateString();
       var e = escapeHtml;
 
       var html = '';
@@ -521,7 +564,9 @@
       html += '<h2>Site Survey &amp; Third-Party Installation Estimate</h2>';
 
       // Customer info
-      html += '<p><strong>Date:</strong> ' + e(dateStr) + '<br>';
+      html += '<p>';
+      if (estimateNo) html += '<strong>Estimate #:</strong> ' + e(estimateNo) + '<br>';
+      html += '<strong>Date:</strong> ' + e(dateStr) + '<br>';
       html += '<strong>Customer:</strong> ' + e(name) + '<br>';
       html += '<strong>Phone:</strong> ' + e(phone) + '<br>';
       html += '<strong>Address:</strong> ' + e(address);
@@ -539,13 +584,14 @@
                 '<td style="text-align:right">' + formatCurrency(value) + '</td></tr>';
       }
 
-      pdfRow('Setup',      totals.setup,      breakdowns.setup || formVals.size);
-      pdfRow('Foundation', totals.foundation, breakdowns.foundation || '');
-      pdfRow('Electrical', totals.electrical, breakdowns.electrical || '');
-      pdfRow('Water',      totals.water,      breakdowns.water || '');
-      pdfRow('Sewer',      totals.sewer,      breakdowns.sewer || '');
-      pdfRow('Septic',     totals.septic,     breakdowns.septic || '');
-      pdfRow('Trenching',  totals.trench,     breakdowns.trench || '');
+      pdfRow('Setup',         totals.setup,      breakdowns.setup || formVals.size);
+      pdfRow('Foundation',    totals.foundation, breakdowns.foundation || '');
+      pdfRow('Electrical',    totals.electrical, breakdowns.electrical || '');
+      pdfRow('Panel Upgrade', totals.panel,      breakdowns.panel || '');
+      pdfRow('Water',         totals.water,      breakdowns.water || '');
+      pdfRow('Sewer',         totals.sewer,      breakdowns.sewer || '');
+      pdfRow('Septic',        totals.septic,     breakdowns.septic || '');
+      pdfRow('Trenching',     totals.trench,     breakdowns.trench || '');
       otherItems.forEach(function(item) {
         var cost = parseFloat(item.cost) || 0;
         if (cost > 0) pdfRow(item.name || 'Other', cost, '');
@@ -562,6 +608,7 @@
       if (formVals.foundationType === 'base')     details.push('Base pad foundation');
       if (formVals.foundationType === 'concrete') details.push('Concrete slab foundation');
       if (formVals.electricalFeet > 0) details.push('Electrical run: ' + formVals.electricalFeet + ' ft to RV connection point (subpanel)');
+      if (formVals.needsPanelUpgrade)  details.push('Main electrical panel upgrade required');
       if (formVals.waterFeet > 0)      details.push('Water line: ' + formVals.waterFeet + ' ft');
       if (formVals.sewerFeet > 0)      details.push('Sewer line: ' + formVals.sewerFeet + ' ft');
       if (formVals.septicSize) {
@@ -569,7 +616,10 @@
         if (formVals.septicLeach > 0) sdesc += ' + ' + formVals.septicLeach + ' ft extra leach line';
         details.push(sdesc);
       }
-      if (formVals.trenchFeet > 0) details.push('Trenching: ' + formVals.trenchFeet + ' ft');
+      if (formVals.trenchFeet > 0) {
+        var soilDesc = { normal: '', rocky: ' (rocky soil conditions)', very_rocky: ' (hard rock conditions)' };
+        details.push('Trenching: ' + formVals.trenchFeet + ' ft' + (soilDesc[formVals.soilCondition] || ''));
+      }
       otherItems.forEach(function(item) {
         if ((parseFloat(item.cost) || 0) > 0) details.push(item.name || 'Other item');
       });
@@ -626,12 +676,17 @@
       el.addEventListener('change', function() { updateSummary(); saveToStorage(); });
     });
 
+    // ─── Septic leach line conditional visibility ─────────────────────────────
+
+    document.getElementById('septic-size').addEventListener('change', updateSepticLeachVisibility);
+
     // ─── Init ─────────────────────────────────────────────────────────────────
 
     loadFromStorage();
     if (!document.getElementById('survey-date').value) {
       document.getElementById('survey-date').value = todayStr();
     }
+    updateSepticLeachVisibility();
     updateSummary();
   </script>
 </body>

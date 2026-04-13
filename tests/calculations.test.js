@@ -16,6 +16,7 @@ const {
   calculateSetup,
   calculateFoundation,
   calculateElectrical,
+  calculatePanelUpgrade,
   calculateWater,
   calculateSewer,
   calculateSeptic,
@@ -332,6 +333,60 @@ describe('calculateTrenching', () => {
     expect(twoDayJob   - oneDayJob).toBe(200 * RATES.trenchPerFoot + RATES.trenchMachineDay);
     expect(threeDayJob - twoDayJob).toBe(200 * RATES.trenchPerFoot + RATES.trenchMachineDay);
   });
+
+  describe('soil condition factor', () => {
+    test('omitting soil factor defaults to 1× (same result)', () => {
+      expect(calculateTrenching(200)).toBe(3400);
+    });
+
+    test('explicit factor of 1 (normal soil) is unchanged', () => {
+      expect(calculateTrenching(200, 1)).toBe(3400);
+    });
+
+    test('rocky factor (1.5): 200 ft base $3,400 × 1.5 = $5,100', () => {
+      expect(calculateTrenching(200, 1.5)).toBe(5100);
+    });
+
+    test('very rocky factor (2.25): 200 ft base $3,400 × 2.25 = $7,650', () => {
+      expect(calculateTrenching(200, 2.25)).toBe(7650);
+    });
+
+    test('soil factor applies to the full cost including machine days', () => {
+      // 201 ft = $3,815 base → × 1.5 = $5,722.50
+      expect(calculateTrenching(201, 1.5)).toBe(5722.5);
+    });
+
+    test('soil factor 1 leaves day-boundary arithmetic unchanged', () => {
+      expect(calculateTrenching(201, 1)).toBe(3815);
+    });
+
+    test('RATES.soilMultiplier has the expected values', () => {
+      expect(RATES.soilMultiplier.normal).toBe(1);
+      expect(RATES.soilMultiplier.rocky).toBe(1.5);
+      expect(RATES.soilMultiplier.very_rocky).toBe(2.25);
+    });
+  });
+});
+
+// ─── calculatePanelUpgrade ────────────────────────────────────────────────────
+
+describe('calculatePanelUpgrade', () => {
+  test('returns 0 when not needed (false)', () => {
+    expect(calculatePanelUpgrade(false)).toBe(0);
+  });
+
+  test('returns 0 for undefined / falsy', () => {
+    expect(calculatePanelUpgrade(undefined)).toBe(0);
+    expect(calculatePanelUpgrade(null)).toBe(0);
+  });
+
+  test('returns RATES.panelUpgrade when needed (true)', () => {
+    expect(calculatePanelUpgrade(true)).toBe(RATES.panelUpgrade);
+  });
+
+  test('RATES.panelUpgrade is $2,500', () => {
+    expect(RATES.panelUpgrade).toBe(2500);
+  });
 });
 
 // ─── calculateOther ───────────────────────────────────────────────────────────
@@ -375,12 +430,27 @@ describe('calculateTotals', () => {
     expect(result.setup).toBe(4000);
     expect(result.foundation).toBe(0);
     expect(result.electrical).toBe(0);
+    expect(result.panel).toBe(0);
     expect(result.water).toBe(0);
     expect(result.sewer).toBe(0);
     expect(result.septic).toBe(0);
     expect(result.trench).toBe(0);
     expect(result.other).toBe(0);
     expect(result.total).toBe(4000);
+  });
+
+  test('panel upgrade is included in total and returned as a line item', () => {
+    const without = calculateTotals({ ...baseInput });
+    const withUpgrade = calculateTotals({ ...baseInput, needsPanelUpgrade: true });
+    expect(withUpgrade.panel).toBe(RATES.panelUpgrade);
+    expect(withUpgrade.total - without.total).toBe(RATES.panelUpgrade);
+  });
+
+  test('rocky soil factor increases trenching proportionally', () => {
+    const normal = calculateTotals({ ...baseInput, trenchFeet: 200, soilFactor: 1 });
+    const rocky  = calculateTotals({ ...baseInput, trenchFeet: 200, soilFactor: 1.5 });
+    expect(rocky.trench).toBe(normal.trench * 1.5);
+    expect(rocky.total - normal.total).toBe(normal.trench * 0.5);
   });
 
   test('total equals sum of all individual line items', () => {
@@ -398,7 +468,7 @@ describe('calculateTotals', () => {
     };
     const result = calculateTotals(input);
     const expectedTotal =
-      result.setup + result.foundation + result.electrical +
+      result.setup + result.foundation + result.electrical + result.panel +
       result.water + result.sewer + result.septic +
       result.trench + result.other;
     expect(result.total).toBe(expectedTotal);
@@ -422,10 +492,11 @@ describe('calculateTotals', () => {
     expect(result.setup).toBe(calculateSetup(input.size, input.hasTrailer));
     expect(result.foundation).toBe(calculateFoundation(input.size, input.foundationType));
     expect(result.electrical).toBe(calculateElectrical(input.electricalFeet));
+    expect(result.panel).toBe(calculatePanelUpgrade(input.needsPanelUpgrade));
     expect(result.water).toBe(calculateWater(input.waterFeet));
     expect(result.sewer).toBe(calculateSewer(input.sewerFeet));
     expect(result.septic).toBe(calculateSeptic(input.septicSize, input.septicLeach));
-    expect(result.trench).toBe(calculateTrenching(input.trenchFeet));
+    expect(result.trench).toBe(calculateTrenching(input.trenchFeet, input.soilFactor));
     expect(result.other).toBe(calculateOther(input.otherCost));
   });
 

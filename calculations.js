@@ -13,12 +13,15 @@ const RATES = {
   trailerExtra: 1750,
   electricalPerFoot: 10,
   electricalSubPanel: 950,
+  panelUpgrade: 2500,
   waterPerFoot: 21.62,
   sewerPerFoot: 36,
   septic: { '1000': 9750, '1200': 10450, '1500': 11250, extraLeachPerFoot: 15 },
   trenchPerFoot: 15,
   trenchMachineDay: 400,
-  trenchFeetPerDay: 200
+  trenchFeetPerDay: 200,
+  // Multipliers applied to the total trenching cost based on ground conditions.
+  soilMultiplier: { normal: 1, rocky: 1.5, very_rocky: 2.25 }
 };
 
 /** Format a numeric value as a USD currency string, e.g. 1234.5 → "$1,234.50" */
@@ -105,15 +108,28 @@ function calculateSeptic(tankSize, extraLeachFeet) {
 /**
  * Trenching cost: $15/ft plus machine rental ($400/day, capacity 200 ft/day).
  * Machine rental days are rounded up to the nearest whole day.
+ * soilFactor multiplies the result to account for difficult ground conditions
+ * (use RATES.soilMultiplier values: normal=1, rocky=1.5, very_rocky=2.25).
  * Returns 0 when no footage is specified.
  * @param {number} feet
+ * @param {number} [soilFactor=1]
  * @returns {number}
  */
-function calculateTrenching(feet) {
+function calculateTrenching(feet, soilFactor) {
   if (feet <= 0) return 0;
+  soilFactor = soilFactor || 1;
   const costFeet = feet * RATES.trenchPerFoot;
   const days = Math.ceil(feet / RATES.trenchFeetPerDay);
-  return costFeet + days * RATES.trenchMachineDay;
+  return (costFeet + days * RATES.trenchMachineDay) * soilFactor;
+}
+
+/**
+ * Cost of upgrading the main electrical panel when it is at capacity or outdated.
+ * @param {boolean} needed
+ * @returns {number}
+ */
+function calculatePanelUpgrade(needed) {
+  return needed ? RATES.panelUpgrade : 0;
 }
 
 /**
@@ -132,28 +148,31 @@ function calculateOther(cost) {
  *   hasTrailer: boolean,
  *   foundationType: string,
  *   electricalFeet: number,
+ *   needsPanelUpgrade: boolean,
  *   waterFeet: number,
  *   sewerFeet: number,
  *   septicSize: string,
  *   septicLeach: number,
  *   trenchFeet: number,
+ *   soilFactor: number,
  *   otherCost: number
  * }} params
- * @returns {{ setup, foundation, electrical, water, sewer, septic, trench, other, total }}
+ * @returns {{ setup, foundation, electrical, panel, water, sewer, septic, trench, other, total }}
  */
-function calculateTotals({ size, hasTrailer, foundationType, electricalFeet, waterFeet,
-    sewerFeet, septicSize, septicLeach, trenchFeet, otherCost }) {
+function calculateTotals({ size, hasTrailer, foundationType, electricalFeet, needsPanelUpgrade,
+    waterFeet, sewerFeet, septicSize, septicLeach, trenchFeet, soilFactor, otherCost }) {
   const setup      = calculateSetup(size, hasTrailer);
   const foundation = calculateFoundation(size, foundationType);
   const electrical = calculateElectrical(electricalFeet);
+  const panel      = calculatePanelUpgrade(needsPanelUpgrade);
   const water      = calculateWater(waterFeet);
   const sewer      = calculateSewer(sewerFeet);
   const septic     = calculateSeptic(septicSize, septicLeach);
-  const trench     = calculateTrenching(trenchFeet);
+  const trench     = calculateTrenching(trenchFeet, soilFactor || 1);
   const other      = calculateOther(otherCost);
   return {
-    setup, foundation, electrical, water, sewer, septic, trench, other,
-    total: setup + foundation + electrical + water + sewer + septic + trench + other
+    setup, foundation, electrical, panel, water, sewer, septic, trench, other,
+    total: setup + foundation + electrical + panel + water + sewer + septic + trench + other
   };
 }
 
@@ -165,6 +184,7 @@ if (typeof module !== 'undefined' && module.exports) {
     calculateSetup,
     calculateFoundation,
     calculateElectrical,
+    calculatePanelUpgrade,
     calculateWater,
     calculateSewer,
     calculateSeptic,
