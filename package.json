@@ -1,0 +1,13 @@
+{
+  "name": "luxe-construction-survey",
+  "version": "1.0.0",
+  "description": "Site Survey Estimator for Luxe Micro Estates",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -240,96 +240,28 @@
       <img src="45CD22F1-D52E-495E-B12E-508CF92E0753.jpeg" alt="Luxe Logo" class="logo" />
     </footer>
   </main>
+  <script src="calculations.js"></script>
   <script>
-    const RATES = {
-      setup: { '20x20': 4000, '20x30': 4500, '20x40': 5000, '8x20': 1500, '8x40': 2000 },
-      trailerExtra: 1750,
-      electricalPerFoot: 10,
-      electricalSubPanel: 950,
-      waterPerFoot: 21.62,
-      sewerPerFoot: 36,
-      septic: { '1000': 9750, '1200': 10450, '1500': 11250, extraLeachPerFoot: 15 },
-      trenchPerFoot: 15,
-      trenchMachineDay: 400,
-      trenchFeetPerDay: 200
-    };
+    // Read current form values and delegate to the pure functions in calculations.js.
 
-    function formatCurrency(value) {
-      return '$' + value.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-    }
-
-    function calculateSetup() {
-      const size = document.getElementById('home-size').value;
-      let cost = RATES.setup[size] || 0;
-      if (document.getElementById('setup-trailer').checked) {
-        cost += RATES.trailerExtra;
-      }
-      return cost;
-    }
-
-    function calculateFoundation() {
-      const size = document.getElementById('home-size').value;
-      const [width, length] = size.split('x').map(Number);
-      const area = width * length;
-      const type = document.getElementById('foundation-type').value;
-      let cost = 0;
-      if (type === 'base') {
-        const perSqFt = 4.5;
-        cost = area * perSqFt;
-        if (cost < 1500) cost = 1500;
-      } else if (type === 'concrete') {
-        const perSqFt = 13.5;
-        cost = area * perSqFt;
-        if (cost < 2160) cost = 2160;
-      }
-      return cost;
-    }
-
-    function calculateElectrical() {
-      const feet = parseFloat(document.getElementById('electrical-feet').value) || 0;
-      if (feet <= 0) return 0;
-      let cost = feet * 3 * RATES.electricalPerFoot;
-      cost += RATES.electricalSubPanel;
-      return cost;
-    }
-
-    function calculateWater() {
-      const feet = parseFloat(document.getElementById('water-feet').value) || 0;
-      return feet * RATES.waterPerFoot;
-    }
-
-    function calculateSewer() {
-      const feet = parseFloat(document.getElementById('sewer-feet').value) || 0;
-      return feet * RATES.sewerPerFoot;
-    }
-
-    function calculateSeptic() {
-      const size = document.getElementById('septic-size').value;
-      if (!size) return 0;
-      let cost = RATES.septic[size] || 0;
-      const extraFeet = parseFloat(document.getElementById('septic-leach').value) || 0;
-      if (extraFeet > 0) {
-        cost += extraFeet * RATES.septic.extraLeachPerFoot;
-      }
-      return cost;
-    }
-
-    function calculateTrenching() {
-      const feet = parseFloat(document.getElementById('trench-feet').value) || 0;
-      if (feet <= 0) return 0;
-      const costFeet = feet * RATES.trenchPerFoot;
-      const days = Math.ceil(feet / RATES.trenchFeetPerDay);
-      const machine = days * RATES.trenchMachineDay;
-      return costFeet + machine;
-    }
-
-    function calculateOther() {
-      const cost = parseFloat(document.getElementById('other-cost').value) || 0;
-      return cost;
+    function getFormValues() {
+      return {
+        size:          document.getElementById('home-size').value,
+        hasTrailer:    document.getElementById('setup-trailer').checked,
+        foundationType: document.getElementById('foundation-type').value,
+        electricalFeet: parseFloat(document.getElementById('electrical-feet').value) || 0,
+        waterFeet:     parseFloat(document.getElementById('water-feet').value) || 0,
+        sewerFeet:     parseFloat(document.getElementById('sewer-feet').value) || 0,
+        septicSize:    document.getElementById('septic-size').value,
+        septicLeach:   parseFloat(document.getElementById('septic-leach').value) || 0,
+        trenchFeet:    parseFloat(document.getElementById('trench-feet').value) || 0,
+        otherCost:     parseFloat(document.getElementById('other-cost').value) || 0
+      };
     }
 
     function updateFoundationEstimate() {
-      const cost = calculateFoundation();
+      const { size, foundationType } = getFormValues();
+      const cost = calculateFoundation(size, foundationType);
       const estEl = document.getElementById('foundation-estimate');
       if (cost > 0) {
         estEl.textContent = 'Estimated foundation cost: ' + formatCurrency(cost);
@@ -338,31 +270,9 @@
       }
     }
 
-    function calculateTotals() {
-      const setup = calculateSetup();
-      const foundation = calculateFoundation();
-      const electrical = calculateElectrical();
-      const water = calculateWater();
-      const sewer = calculateSewer();
-      const septic = calculateSeptic();
-      const trench = calculateTrenching();
-      const other = calculateOther();
-      return {
-        setup,
-        foundation,
-        electrical,
-        water,
-        sewer,
-        septic,
-        trench,
-        other,
-        total: setup + foundation + electrical + water + sewer + septic + trench + other
-      };
-    }
-
     function updateSummary() {
       updateFoundationEstimate();
-      const totals = calculateTotals();
+      const totals = calculateTotals(getFormValues());
       const tbody = document.querySelector('#summary-table tbody');
       tbody.innerHTML = '';
       function addRow(label, value) {
@@ -406,7 +316,8 @@
 
     function generatePDF() {
       updateSummary();
-      const totals = calculateTotals();
+      const formVals = getFormValues();
+      const totals = calculateTotals(formVals);
       const name = document.getElementById('customer-name').value;
       const phone = document.getElementById('customer-phone').value;
       const address = document.getElementById('customer-address').value;
@@ -424,7 +335,7 @@
       html += '</p>';
       html += '<table style="width:100%; border-collapse:collapse">';
       html += '<tr><th style="border:1px solid #ccc; padding:6px">Category</th><th style="border:1px solid #ccc; padding:6px; text-align:right">Cost</th></tr>';
-      function addRowPdf(label,value) {
+      function addRowPdf(label, value) {
         if (value && value > 0) {
           html += '<tr><td style="border:1px solid #ccc; padding:6px">' + label + '</td><td style="border:1px solid #ccc; padding:6px; text-align:right">' + formatCurrency(value) + '</td></tr>';
         }
@@ -443,43 +354,35 @@
       html += '<tr><th style="border:1px solid #ccc; padding:6px">Estimated Total</th><th style="border:1px solid #ccc; padding:6px; text-align:right">' + formatCurrency(totals.total) + '</th></tr>';
       html += '</table>';
       const details = [];
-      const size = document.getElementById('home-size').value;
-      details.push('Home size: ' + size.replace('x','ft × '));
-      if (document.getElementById('setup-trailer').checked) {
+      details.push('Home size: ' + formVals.size.replace('x', 'ft × '));
+      if (formVals.hasTrailer) {
         details.push('Setup on trailer');
       } else {
         details.push('Standard ground setup');
       }
-      const foundationType = document.getElementById('foundation-type').value;
-      if (foundationType === 'base') {
+      if (formVals.foundationType === 'base') {
         details.push('Base pad foundation');
-      } else if (foundationType === 'concrete') {
+      } else if (formVals.foundationType === 'concrete') {
         details.push('Concrete slab foundation');
       }
-      const electricalFeet = parseFloat(document.getElementById('electrical-feet').value) || 0;
-      if (electricalFeet > 0) {
-        details.push('Electrical run of ' + electricalFeet + ' ft to RV connection point (subpanel)');
+      if (formVals.electricalFeet > 0) {
+        details.push('Electrical run of ' + formVals.electricalFeet + ' ft to RV connection point (subpanel)');
       }
-      const waterFeet = parseFloat(document.getElementById('water-feet').value) || 0;
-      if (waterFeet > 0) {
-        details.push('Water line: ' + waterFeet + ' ft');
+      if (formVals.waterFeet > 0) {
+        details.push('Water line: ' + formVals.waterFeet + ' ft');
       }
-      const sewerFeet = parseFloat(document.getElementById('sewer-feet').value) || 0;
-      if (sewerFeet > 0) {
-        details.push('Sewer line: ' + sewerFeet + ' ft');
+      if (formVals.sewerFeet > 0) {
+        details.push('Sewer line: ' + formVals.sewerFeet + ' ft');
       }
-      const septicSize = document.getElementById('septic-size').value;
-      const septicExtra = parseFloat(document.getElementById('septic-leach').value) || 0;
-      if (septicSize) {
-        let desc = 'Septic tank: ' + septicSize + ' gallon';
-        if (septicExtra > 0) {
-          desc += ' with ' + septicExtra + ' ft extra leach line';
+      if (formVals.septicSize) {
+        let desc = 'Septic tank: ' + formVals.septicSize + ' gallon';
+        if (formVals.septicLeach > 0) {
+          desc += ' with ' + formVals.septicLeach + ' ft extra leach line';
         }
         details.push(desc);
       }
-      const trenchFeet = parseFloat(document.getElementById('trench-feet').value) || 0;
-      if (trenchFeet > 0) {
-        details.push('Trenching: ' + trenchFeet + ' ft');
+      if (formVals.trenchFeet > 0) {
+        details.push('Trenching: ' + formVals.trenchFeet + ' ft');
       }
       const otherDesc = document.getElementById('other-name').value.trim();
       if (totals.other > 0) {
